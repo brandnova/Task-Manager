@@ -123,6 +123,22 @@ function App() {
 
   const toggleDarkMode = () => setDarkMode(prev => !prev);
 
+  const toggleStatus = async (pk, currentStatus) => {
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/core/posts/${pk}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: !currentStatus }),
+      });
+      const data = await response.json()
+      setPosts((prev) => prev.map((post) => post.id === pk ? { ...post, status: data.status } : post));
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
   useEffect(() => {
     setTimeout(() => {
       fetchPosts();
@@ -189,18 +205,18 @@ function App() {
                           </h2>
                         </div>
                         <div>
-                        <label htmlFor={`check-${newStatus}`}>
+                        <label htmlFor={`status-${post.id}`}>
                           Status:
                           <input
-                            id={`check-${newStatus}`}
+                            id={`status-${post.id}`}
                             type="checkbox"
-                            checked={newStatus}
-                            onChange={(e) => setNewStatus(e.target.checked)}
+                            checked={post.status}
+                            onChange={() => toggleStatus(post.id, post.status)}
                             className="text-xl m-3"
                           />
                         </label>
-                        <span className="px-3 py-2 rounded-xl bg-gray-400">{newStatus ? 'Done' : 'Not Done'}</span>
-                        </div>
+                        <span className="px-3 py-2 rounded-xl bg-gray-400">{post.status ? 'Done' : 'Not Done'}</span>
+                      </div>
                       </div>
                       <p className="text-gray-600 mb-4">{post.description}</p>
                       <div className="flex flex-row justify-between">
