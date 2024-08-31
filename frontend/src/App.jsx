@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaGithub, FaTwitter, FaPen, FaTrash, FaCode, FaBars, FaTimes,FaSun, FaMoon  } from 'react-icons/fa';
+import { FaSearch, FaGithub, FaTwitter, FaPen, FaTrash, FaCode, FaBars, FaTimes, FaSun, FaMoon } from 'react-icons/fa';
 import "./index.css";
 
 function App() {
-
   const [posts, setPosts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -17,7 +16,66 @@ function App() {
   const [newCreatedat, setNewCreatedat] = useState("0");
   const [newStatus, setNewStatus] = useState(false);
 
-  const updateTask = async (pk) =>{
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [newProjectName, setNewProjectName] = useState("");
+
+  useEffect(() => {
+    const storedProjects = JSON.parse(localStorage.getItem('projects')) || [];
+    setProjects(storedProjects);
+    if (storedProjects.length > 0) {
+      setSelectedProject(storedProjects[0].id);
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('projects', JSON.stringify(projects));
+  }, [projects]);
+
+  const addProject = () => {
+    if (newProjectName.trim() !== "") {
+      const newProject = {
+        id: Date.now(),
+        name: newProjectName,
+        tasks: []
+      };
+      setProjects([...projects, newProject]);
+      setNewProjectName("");
+      if (!selectedProject) {
+        setSelectedProject(newProject.id);
+      }
+    }
+  };
+
+  const addTask = async () => {
+    const postData = {
+      title,
+      description,
+      created_at: createdat,
+      status
+    };
+    try {
+      const response = await fetch("http://127.0.0.1:8000/core/add/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(postData),
+      });
+      const data = await response.json();
+      const updatedProjects = projects.map(project => 
+        project.id === selectedProject 
+          ? { ...project, tasks: [...project.tasks, data.id] }
+          : project
+      );
+      setProjects(updatedProjects);
+      setPosts([...posts, data]);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const updateTask = async (pk) => {
     const postData = {
       title: newTitle,
       description: newDescription,
@@ -33,95 +91,11 @@ function App() {
         body: JSON.stringify(postData),
       });
       const data = await response.json()
-      setPosts((prev) => prev.map((post) => {
-        if (post.id === pk) {
-          return data;
-        } else {
-          return post;
-        }
-      })
-    );
+      setPosts((prev) => prev.map((post) => post.id === pk ? data : post));
     } catch (err) {
       console.log(err);
     }
   }
-
-  const deleteTask = async (pk) => {
-    try {
-      // eslint-disable-next-line no-unused-vars
-      const response = await fetch(`http://127.0.0.1:8000/core/posts/${pk}`, {
-        method:"DELETE",
-      });
-
-      setPosts((prev) => prev.filter((post) => post.id !== pk));
-    } catch (err) {
-      console.log(err);
-    }
-  };
-
-  // State to manage the visibility of the edit forms
-  const [editFormVisible, setEditFormVisible] = useState(
-    new Array(posts.length).fill(false)
-  );
-
-  // Function to toggle the visibility of the edit form for a specific post
-  const toggleEditForm = (index) => {
-    const newVisibility = [...editFormVisible];
-    newVisibility[index] = !newVisibility[index];
-    setEditFormVisible(newVisibility);
-  };
-
-  // Filter and sort the posts by date (newest first)
-  const filteredPosts = posts
-    .filter((post) =>
-      post.title.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-
-
-  
-  const fetchPosts = async () => {
-    try {
-      const response = await fetch("http://127.0.0.1:8000/core/posts/");
-      const data = await response.json();
-      setPosts(data); 
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const addPost = async () => {
-    const postData = {
-      title,
-      description,
-      created_at: createdat,
-      status
-    };
-    try {
-      const response = await fetch("http://127.0.0.1:8000/core/add/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(postData),
-      });
-      const data = await response.json()
-      setPosts((prev) => [...prev, data]);
-    } catch (err) {
-      console.log(err);
-    }
-
-  };
-
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
-
-
-  const [darkMode, setDarkMode] = useState(false);
-
-  const toggleDarkMode = () => setDarkMode(prev => !prev);
 
   const toggleStatus = async (pk, currentStatus) => {
     try {
@@ -138,6 +112,60 @@ function App() {
       console.log(err);
     }
   };
+
+  const deleteTask = async (pk) => {
+    try {
+      await fetch(`http://127.0.0.1:8000/core/posts/${pk}`, {
+        method: "DELETE",
+      });
+      setPosts((prev) => prev.filter((post) => post.id !== pk));
+      setProjects(projects.map(project => ({
+        ...project,
+        tasks: project.tasks.filter(taskId => taskId !== pk)
+      })));
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const filteredPosts = posts.filter((post) =>
+    post.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
+    (selectedProject ? projects.find(p => p.id === selectedProject)?.tasks.includes(post.id) : true)
+  );
+
+  // State to manage the visibility of the edit forms
+  const [editFormVisible, setEditFormVisible] = useState(
+    new Array(posts.length).fill(false)
+  );
+
+  // Function to toggle the visibility of the edit form for a specific post
+  const toggleEditForm = (index) => {
+    const newVisibility = [...editFormVisible];
+    newVisibility[index] = !newVisibility[index];
+    setEditFormVisible(newVisibility);
+  };
+  
+  const fetchPosts = async () => {
+    try {
+      const response = await fetch("http://127.0.0.1:8000/core/posts/");
+      const data = await response.json();
+      setPosts(data); 
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
+
+  const [darkMode, setDarkMode] = useState(false);
+
+  const toggleDarkMode = () => setDarkMode(prev => !prev);
+
 
   useEffect(() => {
     setTimeout(() => {
@@ -167,15 +195,45 @@ function App() {
         </ul>
       </nav>
       </header>
-
+      
       <main className="container mx-auto px-4 py-8 flex flex-col md:flex-row">
-        <div className="posts md:w-3/4 md:pr-8">
+        <div className="md:w-1/4 mb-8 md:mb-0 md:mr-8">
+          <h2 className="text-2xl font-bold mb-4">Projects</h2>
+          <div className="mb-4">
+            <input
+              type="text"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              placeholder="New Project Name"
+              className="w-full p-2 border rounded"
+            />
+            <button 
+              onClick={addProject}
+              className="mt-2 w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+            >
+              Add Project
+            </button>
+          </div>
+          <ul>
+            {projects.map(project => (
+              <li 
+                key={project.id}
+                className={`cursor-pointer p-2 rounded ${selectedProject === project.id ? 'bg-blue-500 text-white' : 'hover:bg-gray-200'}`}
+                onClick={() => setSelectedProject(project.id)}
+              >
+                {project.name}
+              </li>
+            ))}
+          </ul>
+        </div>
+        
+        <div className="posts md:w-1/2">
           <div className="mb-8">
             <div className="relative">
               <input
                 id="search"
                 type="text"
-                placeholder="Search posts..."
+                placeholder="Search tasks..."
                 className="w-full px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -184,17 +242,15 @@ function App() {
             </div>
           </div>
 
-          <>
-            {isLoading ? (
-              <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {filteredPosts.map((post, index) => (
-                  <article key={post.id} className="bg-white rounded-lg shadow-md overflow-hidden transition duration-300 transform hover:scale-105">
-                    
-                    <div className="p-6">
+          {isLoading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {filteredPosts.map((post, index) => (
+                <article key={post.id} className="bg-white rounded-lg shadow-md overflow-hidden transition duration-300 transform hover:scale-105">
+                  <div className="p-6">
                       <div className='flex justify-between'>
                         <div>
                           <h2 className="text-2xl font-bold mb-2 text-gray-500">
@@ -279,11 +335,10 @@ function App() {
                     )}
 
                     </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
 
         <aside className="md:w-1/4 mt-8 md:mt-0">
@@ -313,13 +368,14 @@ function App() {
                 id="check '{post.id}'"
                 className="mb-3 m-3"
                 type="checkbox"
-                onChange={(e) => setStatus(e.target.value)}
+                onChange={(e) => setStatus(e.target.checked)}
               />
             </div>
             <button
               className="rounded-md outline outline-gray-300 hover:outline-gray-500"
               type="submit"
-              onClick={addPost}
+              onClick={addTask}
+              disabled={!selectedProject}
             >
               Submit
             </button>
