@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FaSearch, FaGithub, FaTwitter, FaPen, FaTrash, FaBars, FaTimes, FaSun, FaMoon, FaCheckDouble } from 'react-icons/fa';
+import { FaSearch, FaGithub, FaLinkedin , FaPen, FaTrash, FaBars, FaTimes, FaSun, FaMoon, FaCheckDouble } from 'react-icons/fa';
 import "./index.css";
 
 function App() {
@@ -359,7 +359,7 @@ useEffect(() => {
               <FaGithub size={24} />
             </a>
             <a href="#" className={`transition-colors duration-300 ${ darkMode ? 'hover:text-gray-100' : 'hover:text-gray-900'}`}>
-              <FaTwitter size={24} />
+              <FaLinkedin  size={24} />
             </a>
           </div>
         </div>
